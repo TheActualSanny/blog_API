@@ -1,4 +1,4 @@
-from .models import BlogPost, Comments
+from .models import BlogPost, Comments, Like, Dislike
 from .permissions import CreateIfAuthenticated
 from django.http import JsonResponse
 from rest_framework.response import Response
@@ -6,8 +6,8 @@ from rest_framework.reverse import reverse
 from rest_framework.views import APIView
 from utils.get_post import get_blog_post
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .serializers import PostSerializer, CommentSerializer, PostDetailSerializer
-from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveAPIView
+from . import serializers
+from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveAPIView, CreateAPIView
 
 
 class APIRoot(APIView):
@@ -30,7 +30,7 @@ class PostEndpoint(ListCreateAPIView):
         an object.
     '''
     queryset = BlogPost.objects.all()
-    serializer_class = PostSerializer
+    serializer_class = serializers.PostSerializer
     permission_classes = [CreateIfAuthenticated]
 
     def perform_create(self, serializer):
@@ -44,7 +44,7 @@ class PostEndpoint(ListCreateAPIView):
 
 class CommentEndpoint(ListCreateAPIView):
     queryset = Comments.objects.all()
-    serializer_class = CommentSerializer
+    serializer_class = serializers.CommentSerializer
     permission_classes = [CreateIfAuthenticated]
 
     def perform_create(self, serializer):
@@ -69,29 +69,35 @@ class PostDetailedEndpoint(RetrieveAPIView):
     '''
     queryset = BlogPost.objects.prefetch_related('post_comments')
     permission_classes = [CreateIfAuthenticated]
-    serializer_class = PostDetailSerializer
+    serializer_class = serializers.PostDetailSerializer
 
         
-class LikeEndpoint(APIView):
-    
+class LikeEndpoint(CreateAPIView):
+    queryset = Like.objects.all()
+    serializer_class = serializers.LikeSerializer
     permission_classes = [CreateIfAuthenticated]
-    def post(self, request, pk):
-        post_instance = get_blog_post(pk = pk)
-        if isinstance(post_instance, Response):
-            return post_instance
-        post_instance.like_amount += 1
-        post_instance.save()
-        return Response({
-            'message' : 'Successfully liked the post!'
-        })
 
-class DislikeEndpoint(APIView):
-    def post(self, request, pk):
-        post_instance = get_blog_post(pk = pk)
-        if isinstance(post_instance, Response):
-            return post_instance
-        post_instance.dislike_amount += 1
-        post_instance.save()
-        return Response({
-            'message' : 'Successfully disliked the post!'
-        })
+    def perform_create(self, serializer):
+        blog_title = self.request.data.get('post')
+        try:
+            post_instance = BlogPost.objects.get(post_title = blog_title)
+        except BlogPost.DoesNotExist:
+            return Response({
+                'message' : 'Make sure to pass a correct post title!'
+            })
+        serializer.save(user = self.request.user, post = post_instance)
+
+class DislikeEndpoint(CreateAPIView):
+    queryset = Dislike.objects.all()
+    serializer_class = serializers.DislikeSerializer
+    permission_classes = [CreateIfAuthenticated]
+
+    def perform_create(self, serializer):
+        blog_title = self.request.data.get('post')
+        try:
+            post_instance = BlogPost.objects.get(post_title = blog_title)
+        except BlogPost.DoesNotExist:
+            return Response({
+                'message' : 'Make sure to pass a correct post title!'
+            })
+        serializer.save(user = self.request.user, post = post_instance)
