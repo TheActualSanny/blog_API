@@ -1,3 +1,5 @@
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import ValidationError, AuthenticationFailed
@@ -13,6 +15,7 @@ class Register(APIView):
             'message' : 'Please pass the account credentials!'
         })
 
+    @swagger_auto_schema(request_body = RegisterSerializer)
     def post(self, request):
         account_serializer = RegisterSerializer(data = request.data)
         if not account_serializer.is_valid():
@@ -34,6 +37,17 @@ class Login(APIView):
         return Response({
             'message' : 'Please pass the account credentials!'
         })
+
+    @swagger_auto_schema(request_body = openapi.Schema(
+            type = openapi.TYPE_OBJECT,
+            required = ['username', 'password'],
+            properties = {
+                'username' : openapi.Schema(type = openapi.TYPE_STRING, 
+                                          description = 'Input your username'),
+                'password' : openapi.Schema(type = openapi.TYPE_STRING, 
+                                          description = 'Input your password')
+            },
+    ))
 
     def post(self, request):
         username = request.data.get('username')
